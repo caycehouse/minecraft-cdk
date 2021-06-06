@@ -158,13 +158,6 @@ Resources:
   # BASIC VPC
   # ====================================================
 
-  Vpc: 
-    Type: AWS::EC2::VPC
-    Properties: 
-      CidrBlock: 10.100.0.0/26
-      EnableDnsSupport: true
-      EnableDnsHostnames: true
-
   SubnetA:
     Type: AWS::EC2::Subnet
     Properties:
