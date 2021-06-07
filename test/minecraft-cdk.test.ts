@@ -1,13 +1,16 @@
-import { expect as expectCDK, matchTemplate, MatchStyle } from '@aws-cdk/assert';
+import { SynthUtils } from '@aws-cdk/assert';
 import * as cdk from '@aws-cdk/core';
 import * as MinecraftCdk from '../lib/minecraft-cdk-stack';
 
-test('Empty Stack', () => {
-    const app = new cdk.App();
-    // WHEN
+test('Snapshot Testing', () => {
+    const app = new cdk.App({
+        context: {
+            instanceType: "t3.medium",
+            minecraftImageTag: "latest",
+            serverState: "Running",
+            spotPrice: "0.015",
+        }
+    });
     const stack = new MinecraftCdk.MinecraftCdkStack(app, 'MyTestStack');
-    // THEN
-    expectCDK(stack).to(matchTemplate({
-      "Resources": {}
-    }, MatchStyle.EXACT))
+    expect(SynthUtils.toCloudFormation(stack)).toMatchSnapshot();
 });
