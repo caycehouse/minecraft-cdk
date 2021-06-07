@@ -8,6 +8,17 @@ export class MinecraftCdkStack extends cdk.Stack {
   constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
+    const adminPlayerNames = this.node.tryGetContext('adminPlayerNames');
+    const instanceType = this.node.tryGetContext('instanceType');
+    const capacity = this.node.tryGetContext('serverState') ? 1 : 0;
+    const difficulty = this.node.tryGetContext('difficulty');
+    const keyPairName = this.node.tryGetContext('keyPairName');
+    const minecraftImageTag = this.node.tryGetContext('minecraftImageTag');
+    const minecraftTypeTag = this.node.tryGetContext('minecraftTypeTag');
+    const spotPrice = this.node.tryGetContext('spotPrice');
+    const whitelist = this.node.tryGetContext('whitelist');
+    const yourIPv4 = this.node.tryGetContext('yourIPv4');
+
     // Create an EC2 Vpc
     const vpc = new ec2.Vpc(this, 'Vpc', {
       subnetConfiguration: [
@@ -26,14 +37,14 @@ export class MinecraftCdkStack extends cdk.Stack {
     // Create an Auto Scaling Group
     const autoScalingGroup = new autoscaling.AutoScalingGroup(this, 'ASG', {
       vpc,
-      instanceType: new ec2.InstanceType(this.node.tryGetContext('instanceType')),
+      spotPrice,
+      instanceType: new ec2.InstanceType(instanceType),
       machineImage: ecs.EcsOptimizedImage.amazonLinux2(),
-      spotPrice: this.node.tryGetContext('spotPrice'),
       associatePublicIpAddress: true,
-      desiredCapacity: this.node.tryGetContext('serverState') === "Running" ? 1 : 0,
-      minCapacity: this.node.tryGetContext('serverState') === "Running" ? 1 : 0,
-      maxCapacity: this.node.tryGetContext('serverState') === "Running" ? 1 : 0,
-      keyName: this.node.tryGetContext('keyPairName'),
+      desiredCapacity: capacity,
+      minCapacity: capacity,
+      maxCapacity: capacity,
+      ...(keyPairName !== undefined && { keyName: keyPairName }),
     });
 
     // Create an Auto Scaling Group Capacity Provider
@@ -74,14 +85,14 @@ export class MinecraftCdkStack extends cdk.Stack {
 
     // Create the container definition
     const container = taskDefinition.addContainer('minecraft', {
-      image: ecs.ContainerImage.fromRegistry(`itzg/minecraft-server:${this.node.tryGetContext('minecraftImageTag')}`),
+      image: ecs.ContainerImage.fromRegistry(`itzg/minecraft-server:${minecraftImageTag}`),
       memoryReservationMiB: 1024,
       environment: {
         'EULA': "TRUE",
-        'TYPE': this.node.tryGetContext('minecraftTypeTag'),
-        'OPS': this.node.tryGetContext('adminPlayerNames'),
-        'DIFFICULTY': this.node.tryGetContext('difficulty'),
-        'WHITELIST': this.node.tryGetContext('whitelist'),
+        ...(minecraftTypeTag !== undefined && { 'TYPE': minecraftTypeTag }),
+        ...(adminPlayerNames !== undefined && { 'OPS': adminPlayerNames }),
+        ...(difficulty !== undefined && { 'DIFFICULTY': difficulty }),
+        ...(whitelist !== undefined && { 'WHITELIST': whitelist }),
       },
     });
 
@@ -115,9 +126,9 @@ export class MinecraftCdkStack extends cdk.Stack {
     autoScalingGroup.connections.allowFromAnyIpv4(ec2.Port.tcp(25565));
 
     // Allow ssh if your ipv4 address was provided
-    if (!this.node.tryGetContext('yourIPv4').valueAsString) {
+    if (!yourIPv4 === undefined) {
       service.connections.allowFrom(
-        ec2.Peer.ipv4(`${this.node.tryGetContext('yourIPv4').valueAsString}/32`),
+        ec2.Peer.ipv4(`${yourIPv4}/32`),
         ec2.Port.tcp(22)
       );
     }

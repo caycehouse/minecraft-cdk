@@ -5,12 +5,16 @@ import { MinecraftCdkStack } from '../lib/minecraft-cdk-stack';
 
 const app = new cdk.App({
     context: {
+        adminPlayerNames: undefined,
+        difficulty: undefined,
         instanceType: "t3.medium",
-        keyPairName: "",
+        keyPairName: undefined,
         minecraftImageTag: "latest",
-        serverState: "Stopped",
+        minecraftTypeTag: undefined,
+        serverState: "Running",
         spotPrice: "0.015",
-        yourIPv4: ""
+        whitelist: undefined,
+        yourIPv4: undefined
     },
 });
 
