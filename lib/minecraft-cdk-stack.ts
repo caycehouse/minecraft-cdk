@@ -126,7 +126,7 @@ export class MinecraftCdkStack extends cdk.Stack {
     autoScalingGroup.connections.allowFromAnyIpv4(ec2.Port.tcp(25565));
 
     // Allow ssh if your ipv4 address was provided
-    if (!yourIPv4 === undefined) {
+    if (yourIPv4 !== undefined) {
       service.connections.allowFrom(
         ec2.Peer.ipv4(`${yourIPv4}/32`),
         ec2.Port.tcp(22)
