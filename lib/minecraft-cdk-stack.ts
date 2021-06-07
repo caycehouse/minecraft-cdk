@@ -9,9 +9,9 @@ export class MinecraftCdkStack extends cdk.Stack {
     super(scope, id, props);
 
     const adminPlayerNames = this.node.tryGetContext('adminPlayerNames');
-    const instanceType = this.node.tryGetContext('instanceType');
     const capacity = this.node.tryGetContext('serverState') ? 1 : 0;
     const difficulty = this.node.tryGetContext('difficulty');
+    const instanceType = this.node.tryGetContext('instanceType');
     const keyPairName = this.node.tryGetContext('keyPairName');
     const minecraftImageTag = this.node.tryGetContext('minecraftImageTag');
     const minecraftTypeTag = this.node.tryGetContext('minecraftTypeTag');
