@@ -1,83 +1,81 @@
+import * as autoscaling from '@aws-cdk/aws-autoscaling';
 import * as cdk from '@aws-cdk/core';
 import * as ec2 from '@aws-cdk/aws-ec2'
 import * as ecs from '@aws-cdk/aws-ecs';
-import * as autoscaling from '@aws-cdk/aws-autoscaling';
 import * as efs from '@aws-cdk/aws-efs';
-import { Peer, Port } from '@aws-cdk/aws-ec2';
-import { CfnCondition, CfnMapping, CfnParameter, Fn, Stack, Token } from '@aws-cdk/core';
 
 export class MinecraftCdkStack extends cdk.Stack {
   constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
-    const serverState = new CfnParameter(this, "serverState", {
+    const serverState = new cdk.CfnParameter(this, "serverState", {
       type: "String",
       description: "Running: A spot instance will launch shortly after setting this parameter; your Minecraft server should start within 5-10 minutes of changing this parameter (once UPDATE_IN_PROGRESS becomes UPDATE_COMPLETE). Stopped: Your spot instance (and thus Minecraft container) will be terminated shortly after setting this parameter.",
       default: "Running",
       allowedValues: ["Running", "Stopped"]
     });
 
-    const instanceType = new CfnParameter(this, "instanceType", {
+    const instanceType = new cdk.CfnParameter(this, "instanceType", {
       type: "String",
       description: "t3.medium is a good cost effective instance, 2 vCPU and 4 GB of RAM with moderate network performance. Change at your discretion. https://aws.amazon.com/ec2/instance-types/.",
       default: "t3.medium"
     });
 
-    const spotPrice = new CfnParameter(this, "spotPrice", {
+    const spotPrice = new cdk.CfnParameter(this, "spotPrice", {
       type: "String",
       description: "A spot price t3.medium is currently 0.0135 per hour on average.",
       default: "0.0135"
     });
 
-    const keyPairName = new CfnParameter(this, "keyPairName", {
+    const keyPairName = new cdk.CfnParameter(this, "keyPairName", {
       type: "String",
       description: "If you wish to access the instance via SSH, select a Key Pair to use. https://console.aws.amazon.com/ec2/v2/home?#KeyPairs:sort=keyName",
       default: '',
     });
 
-    const yourIPv4 = new CfnParameter(this, "yourIPv4", {
+    const yourIPv4 = new cdk.CfnParameter(this, "yourIPv4", {
       type: "String",
       description: "If you wish to access the instance via SSH and using IPv4, provide it.",
       default: '',
     });
 
-    const hostedZoneID = new CfnParameter(this, "hostedZoneID", {
+    const hostedZoneID = new cdk.CfnParameter(this, "hostedZoneID", {
       type: "String",
       description: "If you have a hosted zone in Route 53 and wish to update a DNS record whenever your Minecraft instance starts, supply the hosted zone ID here.",
       default: '',
     });
 
-    const recordName = new CfnParameter(this, "recordName", {
+    const recordName = new cdk.CfnParameter(this, "recordName", {
       type: "String",
       description: "If you have a hosted zone in Route 53 and wish to set a DNS record whenever your Minecraft instance starts, supply a record name here (e.g. minecraft.mydomain.com).",
       default: '',
     });
 
-    const minecraftImageTag = new CfnParameter(this, "minecraftImageTag", {
+    const minecraftImageTag = new cdk.CfnParameter(this, "minecraftImageTag", {
       type: "String",
       description: "Java version (Examples include latest, adopt13, openj9, etc) Refer to tag descriptions available here: https://github.com/itzg/docker-minecraft-server).",
       default: "latest"
     });
 
-    const minecraftTypeTag = new CfnParameter(this, "minecraftTypeTag", {
+    const minecraftTypeTag = new cdk.CfnParameter(this, "minecraftTypeTag", {
       type: "String",
       description: "(Examples include SPIGOT, BUKKIT, TUINITY, etc) Refer to tag descriptions available here: https://github.com/itzg/docker-minecraft-server).",
       default: 'VANILLA'
     });
 
-    const adminPlayerNames = new CfnParameter(this, "adminPlayerNames", {
+    const adminPlayerNames = new cdk.CfnParameter(this, "adminPlayerNames", {
       type: "String",
       description: "A comma delimited list (no spaces) of player names to be admins.",
       default: '',
     });
 
-    const difficulty = new CfnParameter(this, "difficulty", {
+    const difficulty = new cdk.CfnParameter(this, "difficulty", {
       type: "String",
       description: "Examples include peaceful, easy (default), normal, and hard.",
       default: 'easy',
     });
 
-    const whitelist = new CfnParameter(this, "whitelist", {
+    const whitelist = new cdk.CfnParameter(this, "whitelist", {
       type: "String",
       description: "A comma delimited list (no spaces) of player names.",
       default: '',
@@ -99,7 +97,7 @@ export class MinecraftCdkStack extends cdk.Stack {
     });
 
     // Create a capacity mapping
-    const capacityMapping = new CfnMapping(this, 'Mapping', {
+    const capacityMapping = new cdk.CfnMapping(this, 'Mapping', {
       mapping: {
         Running: {
           DesiredCapacity: 1
@@ -111,7 +109,7 @@ export class MinecraftCdkStack extends cdk.Stack {
     })
 
     // Get our capacity from the mapping
-    const capacity = Token.asNumber(Fn.findInMap(capacityMapping.logicalId, serverState.valueAsString, "DesiredCapacity"));
+    const capacity = cdk.Token.asNumber(cdk.Fn.findInMap(capacityMapping.logicalId, serverState.valueAsString, "DesiredCapacity"));
 
     // Create an Auto Scaling Group
     const autoScalingGroup = new autoscaling.AutoScalingGroup(this, 'ASG', {
@@ -145,7 +143,7 @@ export class MinecraftCdkStack extends cdk.Stack {
       "efs_mount_point_1=/opt/minecraft",
       "mkdir -p \"${efs_mount_point_1}\"",
       "test -f \"/sbin/mount.efs\" && echo \"${file_system_id_1}:/ ${efs_mount_point_1} efs defaults,_netdev\" >> /etc/fstab || " +
-      "echo \"${file_system_id_1}.efs." + Stack.of(this).region + ".amazonaws.com:/ ${efs_mount_point_1} nfs4 nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport,_netdev 0 0\" >> /etc/fstab",
+      "echo \"${file_system_id_1}.efs." + cdk.Stack.of(this).region + ".amazonaws.com:/ ${efs_mount_point_1} nfs4 nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport,_netdev 0 0\" >> /etc/fstab",
       "mount -a -t efs,nfs4 defaults");
 
     // Create an ECS Volume
@@ -200,13 +198,13 @@ export class MinecraftCdkStack extends cdk.Stack {
     });
 
     // Allow Minecraft connections
-    autoScalingGroup.connections.allowFromAnyIpv4(Port.tcp(25565));
+    autoScalingGroup.connections.allowFromAnyIpv4(ec2.Port.tcp(25565));
 
     // Allow ssh if your ipv4 address was provided
     if (!yourIPv4.valueAsString) {
       service.connections.allowFrom(
-        Peer.ipv4(`${yourIPv4.valueAsString}/32`),
-        Port.tcp(22)
+        ec2.Peer.ipv4(`${yourIPv4.valueAsString}/32`),
+        ec2.Port.tcp(22)
       );
     }
 
