@@ -196,6 +196,7 @@ export class MinecraftCdkStack extends cdk.Stack {
     const service = new ecs.Ec2Service(this, 'EC2Service', {
       cluster,
       taskDefinition,
+      daemon: true
     });
 
     // Allow Minecraft connections
