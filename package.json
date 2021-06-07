@@ -17,7 +17,7 @@
     "@aws-cdk/aws-ecs": "^1.107.0",
     "@aws-cdk/aws-efs": "^1.107.0",
     "@types/jest": "^26.0.10",
-    "@types/node": "10.17.27",
+    "@types/node": "15.12.1",
     "aws-cdk": "1.107.0",
     "jest": "^26.4.2",
     "ts-jest": "^26.2.0",
