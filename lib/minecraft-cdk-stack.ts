@@ -8,6 +8,7 @@ export class MinecraftCdkStack extends cdk.Stack {
   constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
+    // Setup our parameters
     const serverState = new cdk.CfnParameter(this, "serverState", {
       type: "String",
       description: "Running: A spot instance will launch shortly after setting this parameter; your Minecraft server should start within 5-10 minutes of changing this parameter (once UPDATE_IN_PROGRESS becomes UPDATE_COMPLETE). Stopped: Your spot instance (and thus Minecraft container) will be terminated shortly after setting this parameter.",
@@ -208,6 +209,7 @@ export class MinecraftCdkStack extends cdk.Stack {
       );
     }
 
+    // Output how to find the instance ip
     new cdk.CfnOutput(this, "CheckInstanceIp", {
       value: `https://${service.env.region}.console.aws.amazon.com/ec2/v2/home?region=${service.env.region}#Instances:tag:aws:autoscaling:groupName=${autoScalingGroup.autoScalingGroupName};sort=tag:Name`,
       description: "To find your Minecraft instance IP address, visit the following link. Click on the instance to find its Public IP address."
