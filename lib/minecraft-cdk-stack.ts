@@ -4,7 +4,7 @@ import * as ecs from '@aws-cdk/aws-ecs';
 import * as autoscaling from '@aws-cdk/aws-autoscaling';
 import * as efs from '@aws-cdk/aws-efs';
 import { Peer, Port } from '@aws-cdk/aws-ec2';
-import { CfnParameter } from '@aws-cdk/core';
+import { CfnCondition, CfnMapping, CfnParameter, Fn, Stack, Token } from '@aws-cdk/core';
 
 export class MinecraftCdkStack extends cdk.Stack {
   constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
@@ -98,6 +98,21 @@ export class MinecraftCdkStack extends cdk.Stack {
       vpc,
     });
 
+    // Create a capacity mapping
+    const capacityMapping = new CfnMapping(this, 'Mapping', {
+      mapping: {
+        Running: {
+          DesiredCapacity: 1
+        },
+        Stopped: {
+          DesiredCapacity: 0
+        },
+      }
+    })
+
+    // Get our capacity from the mapping
+    const capacity = Token.asNumber(Fn.findInMap(capacityMapping.logicalId, serverState.valueAsString, "DesiredCapacity"));
+
     // Create an Auto Scaling Group
     const autoScalingGroup = new autoscaling.AutoScalingGroup(this, 'ASG', {
       vpc,
@@ -105,9 +120,9 @@ export class MinecraftCdkStack extends cdk.Stack {
       machineImage: ecs.EcsOptimizedImage.amazonLinux2(),
       spotPrice: spotPrice.valueAsString,
       associatePublicIpAddress: true,
-      desiredCapacity: serverState.valueAsString === 'Running' ? 1 : 0,
-      minCapacity: serverState.valueAsString === 'Running' ? 1 : 0,
-      maxCapacity: serverState.valueAsString === 'Running' ? 1 : 0,
+      desiredCapacity: capacity,
+      minCapacity: capacity,
+      maxCapacity: capacity,
     });
 
     // Create an Auto Scaling Group Capacity Provider
@@ -121,27 +136,34 @@ export class MinecraftCdkStack extends cdk.Stack {
       vpc,
     });
 
-    const hostMountPoint: ecs.Host = {
-      sourcePath: "/opt/minecraft",
-    };
+    // Automount the efs filesystem to /opt/minecraft
+    autoScalingGroup.addUserData("yum check-update -y",
+      "yum upgrade -y",
+      "yum install -y amazon-efs-utils",
+      "yum install -y nfs-utils",
+      "file_system_id_1=" + fileSystem.fileSystemId,
+      "efs_mount_point_1=/opt/minecraft",
+      "mkdir -p \"${efs_mount_point_1}\"",
+      "test -f \"/sbin/mount.efs\" && echo \"${file_system_id_1}:/ ${efs_mount_point_1} efs defaults,_netdev\" >> /etc/fstab || " +
+      "echo \"${file_system_id_1}.efs." + Stack.of(this).region + ".amazonaws.com:/ ${efs_mount_point_1} nfs4 nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport,_netdev 0 0\" >> /etc/fstab",
+      "mount -a -t efs,nfs4 defaults");
 
     // Create an ECS Volume
     const volume: ecs.Volume = {
       name: "minecraft-volume",
-      efsVolumeConfiguration: {
-        fileSystemId: fileSystem.fileSystemId,
+      host: {
+        sourcePath: "/opt/minecraft"
       }
     };
 
     // Create an ECS EC2 Task Definition
     const taskDefinition = new ecs.Ec2TaskDefinition(this, 'TaskDef', {
-      networkMode: ecs.NetworkMode.AWS_VPC,
       volumes: [volume]
     });
 
     // Create the container definition
     const container = taskDefinition.addContainer('minecraft', {
-      image: ecs.ContainerImage.fromRegistry(`itzg/minecraft-server:${minecraftImageTag}`),
+      image: ecs.ContainerImage.fromRegistry(`itzg/minecraft-server:${minecraftImageTag.valueAsString}`),
       memoryReservationMiB: 1024,
       environment: {
         'EULA': "TRUE",
@@ -149,7 +171,7 @@ export class MinecraftCdkStack extends cdk.Stack {
         'OPS': adminPlayerNames.valueAsString,
         'DIFFICULTY': difficulty.valueAsString,
         'WHITELIST': whitelist.valueAsString,
-      }
+      },
     });
 
     // Create an ECS MountPoint
@@ -178,7 +200,7 @@ export class MinecraftCdkStack extends cdk.Stack {
     });
 
     // Allow Minecraft connections
-    service.connections.allowFromAnyIpv4(Port.tcp(25565));
+    autoScalingGroup.connections.allowFromAnyIpv4(Port.tcp(25565));
 
     // Allow ssh if your ipv4 address was provided
     if (!yourIPv4.valueAsString) {
