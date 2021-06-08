@@ -128,6 +128,9 @@ export class MinecraftCdkStack extends cdk.Stack {
       daemon: true
     });
 
+    // Allow ec2 instance to access efs
+    fileSystem.connections.allowDefaultPortFrom(autoScalingGroup);
+
     // Allow Minecraft connections
     autoScalingGroup.connections.allowFromAnyIpv4(ec2.Port.tcp(25565));
 
