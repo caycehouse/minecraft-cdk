@@ -133,7 +133,7 @@ export class MinecraftCdkStack extends cdk.Stack {
 
     // Allow ssh if your ipv4 address was provided
     if (yourIPv4 !== undefined) {
-      service.connections.allowFrom(
+      autoScalingGroup.connections.allowFrom(
         ec2.Peer.ipv4(`${yourIPv4}/32`),
         ec2.Port.tcp(22)
       );
