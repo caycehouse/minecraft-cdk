@@ -3,84 +3,27 @@ import * as cdk from '@aws-cdk/core';
 import * as ec2 from '@aws-cdk/aws-ec2'
 import * as ecs from '@aws-cdk/aws-ecs';
 import * as efs from '@aws-cdk/aws-efs';
+import * as events from '@aws-cdk/aws-events';
+import * as iam from '@aws-cdk/aws-iam';
+import * as lambda from '@aws-cdk/aws-lambda-nodejs';
+import * as targets from "@aws-cdk/aws-events-targets";
 
 export class MinecraftCdkStack extends cdk.Stack {
   constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
-    // Setup our parameters
-    const serverState = new cdk.CfnParameter(this, "serverState", {
-      type: "String",
-      description: "Running: A spot instance will launch shortly after setting this parameter; your Minecraft server should start within 5-10 minutes of changing this parameter (once UPDATE_IN_PROGRESS becomes UPDATE_COMPLETE). Stopped: Your spot instance (and thus Minecraft container) will be terminated shortly after setting this parameter.",
-      default: "Running",
-      allowedValues: ["Running", "Stopped"]
-    });
-
-    const instanceType = new cdk.CfnParameter(this, "instanceType", {
-      type: "String",
-      description: "t3.medium is a good cost effective instance, 2 vCPU and 4 GB of RAM with moderate network performance. Change at your discretion. https://aws.amazon.com/ec2/instance-types/.",
-      default: "t3.medium"
-    });
-
-    const spotPrice = new cdk.CfnParameter(this, "spotPrice", {
-      type: "String",
-      description: "A spot price t3.medium is currently 0.0135 per hour on average.",
-      default: "0.0135"
-    });
-
-    const keyPairName = new cdk.CfnParameter(this, "keyPairName", {
-      type: "String",
-      description: "If you wish to access the instance via SSH, select a Key Pair to use. https://console.aws.amazon.com/ec2/v2/home?#KeyPairs:sort=keyName",
-      default: '',
-    });
-
-    const yourIPv4 = new cdk.CfnParameter(this, "yourIPv4", {
-      type: "String",
-      description: "If you wish to access the instance via SSH and using IPv4, provide it.",
-      default: '',
-    });
-
-    const hostedZoneID = new cdk.CfnParameter(this, "hostedZoneID", {
-      type: "String",
-      description: "If you have a hosted zone in Route 53 and wish to update a DNS record whenever your Minecraft instance starts, supply the hosted zone ID here.",
-      default: '',
-    });
-
-    const recordName = new cdk.CfnParameter(this, "recordName", {
-      type: "String",
-      description: "If you have a hosted zone in Route 53 and wish to set a DNS record whenever your Minecraft instance starts, supply a record name here (e.g. minecraft.mydomain.com).",
-      default: '',
-    });
-
-    const minecraftImageTag = new cdk.CfnParameter(this, "minecraftImageTag", {
-      type: "String",
-      description: "Java version (Examples include latest, adopt13, openj9, etc) Refer to tag descriptions available here: https://github.com/itzg/docker-minecraft-server).",
-      default: "latest"
-    });
-
-    const minecraftTypeTag = new cdk.CfnParameter(this, "minecraftTypeTag", {
-      type: "String",
-      description: "(Examples include SPIGOT, BUKKIT, TUINITY, etc) Refer to tag descriptions available here: https://github.com/itzg/docker-minecraft-server).",
-      default: 'VANILLA'
-    });
-
-    const adminPlayerNames = new cdk.CfnParameter(this, "adminPlayerNames", {
-      type: "String",
-      description: "A comma delimited list (no spaces) of player names to be admins.",
-      default: '',
-    });
-
-    const difficulty = new cdk.CfnParameter(this, "difficulty", {
-      type: "String",
-      description: "Examples include peaceful, easy (default), normal, and hard.",
-      default: 'easy',
-    });
-
-    const whitelist = new cdk.CfnParameter(this, "whitelist", {
-      type: "String",
-      description: "A comma delimited list (no spaces) of player names.",
-      default: '',
-    });
+    const adminPlayerNames = this.node.tryGetContext('adminPlayerNames');
+    const capacity = this.node.tryGetContext('serverState') === "Running" ? 1 : 0;
+    const difficulty = this.node.tryGetContext('difficulty');
+    const hostedZoneId = this.node.tryGetContext('hostedZoneId');
+    const instanceType = this.node.tryGetContext('instanceType');
+    const keyPairName = this.node.tryGetContext('keyPairName');
+    const minecraftImageTag = this.node.tryGetContext('minecraftImageTag');
+    const minecraftTypeTag = this.node.tryGetContext('minecraftTypeTag');
+    const recordName = this.node.tryGetContext('recordName');
+    const spotPrice = this.node.tryGetContext('spotPrice');
+    const whitelist = this.node.tryGetContext('whitelist');
+    const yourIPv4 = this.node.tryGetContext('yourIPv4');
 
     // Create an EC2 Vpc
     const vpc = new ec2.Vpc(this, 'Vpc', {
@@ -97,31 +40,17 @@ export class MinecraftCdkStack extends cdk.Stack {
       vpc,
     });
 
-    // Create a capacity mapping
-    const capacityMapping = new cdk.CfnMapping(this, 'Mapping', {
-      mapping: {
-        Running: {
-          DesiredCapacity: 1
-        },
-        Stopped: {
-          DesiredCapacity: 0
-        },
-      }
-    })
-
-    // Get our capacity from the mapping
-    const capacity = cdk.Token.asNumber(cdk.Fn.findInMap(capacityMapping.logicalId, serverState.valueAsString, "DesiredCapacity"));
-
     // Create an Auto Scaling Group
     const autoScalingGroup = new autoscaling.AutoScalingGroup(this, 'ASG', {
       vpc,
-      instanceType: new ec2.InstanceType(instanceType.valueAsString),
+      spotPrice,
+      instanceType: new ec2.InstanceType(instanceType),
       machineImage: ecs.EcsOptimizedImage.amazonLinux2(),
-      spotPrice: spotPrice.valueAsString,
       associatePublicIpAddress: true,
       desiredCapacity: capacity,
       minCapacity: capacity,
       maxCapacity: capacity,
+      ...(keyPairName !== undefined && { keyName: keyPairName }),
     });
 
     // Create an Auto Scaling Group Capacity Provider
@@ -162,14 +91,14 @@ export class MinecraftCdkStack extends cdk.Stack {
 
     // Create the container definition
     const container = taskDefinition.addContainer('minecraft', {
-      image: ecs.ContainerImage.fromRegistry(`itzg/minecraft-server:${minecraftImageTag.valueAsString}`),
+      image: ecs.ContainerImage.fromRegistry(`itzg/minecraft-server:${minecraftImageTag}`),
       memoryReservationMiB: 1024,
       environment: {
         'EULA': "TRUE",
-        'TYPE': minecraftTypeTag.valueAsString,
-        'OPS': adminPlayerNames.valueAsString,
-        'DIFFICULTY': difficulty.valueAsString,
-        'WHITELIST': whitelist.valueAsString,
+        ...(minecraftTypeTag !== undefined && { 'TYPE': minecraftTypeTag }),
+        ...(adminPlayerNames !== undefined && { 'OPS': adminPlayerNames }),
+        ...(difficulty !== undefined && { 'DIFFICULTY': difficulty }),
+        ...(whitelist !== undefined && { 'WHITELIST': whitelist }),
       },
     });
 
@@ -203,11 +132,47 @@ export class MinecraftCdkStack extends cdk.Stack {
     autoScalingGroup.connections.allowFromAnyIpv4(ec2.Port.tcp(25565));
 
     // Allow ssh if your ipv4 address was provided
-    if (!yourIPv4.valueAsString) {
-      service.connections.allowFrom(
-        ec2.Peer.ipv4(`${yourIPv4.valueAsString}/32`),
+    if (yourIPv4 !== undefined) {
+      autoScalingGroup.connections.allowFrom(
+        ec2.Peer.ipv4(`${yourIPv4}/32`),
         ec2.Port.tcp(22)
       );
+    }
+
+    if (hostedZoneId !== undefined && recordName !== undefined) {
+      const dnsHandler = new lambda.NodejsFunction(this, 'dns', {
+        description: "Sets Route 53 DNS Record for Minecraft",
+        timeout: cdk.Duration.seconds(20),
+        environment: {
+          hostedZoneId: hostedZoneId,
+          recordName: recordName,
+        },
+        bundling: {
+          externalModules: [
+            'aws-sdk'
+          ]
+        },
+      });
+
+      const dnsPolicy = new iam.PolicyStatement({
+        actions: ['route53:*', 'ec2:DescribeInstance*'],
+        resources: ['*'],
+      });
+  
+      dnsHandler.role?.attachInlinePolicy(
+        new iam.Policy(this, 'DNSPolicy', {
+          statements: [dnsPolicy],
+        }),
+      );
+
+      new events.Rule(this, 'rule', {
+        eventPattern: {
+          source: ["aws.autoscaling"],
+          detail: { "AutoScalingGroupName" : [autoScalingGroup.autoScalingGroupName] },
+          detailType: ["EC2 Instance Launch Successful"],
+        },
+        targets: [new targets.LambdaFunction(dnsHandler)]
+      });
     }
 
     // Output how to find the instance ip
