@@ -12,7 +12,7 @@ const app = new cdk.App({
         keyPairName: undefined,
         minecraftImageTag: "latest",
         minecraftTypeTag: undefined,
-        recordName: undefined,
+        memory: '3G',
         serverState: "Running",
         spotPrice: "0.015",
         whitelist: undefined,

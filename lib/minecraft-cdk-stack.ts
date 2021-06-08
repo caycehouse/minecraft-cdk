@@ -20,6 +20,7 @@ export class MinecraftCdkStack extends cdk.Stack {
     const keyPairName = this.node.tryGetContext('keyPairName');
     const minecraftImageTag = this.node.tryGetContext('minecraftImageTag');
     const minecraftTypeTag = this.node.tryGetContext('minecraftTypeTag');
+    const memory = this.node.tryGetContext('memory');
     const recordName = this.node.tryGetContext('recordName');
     const spotPrice = this.node.tryGetContext('spotPrice');
     const whitelist = this.node.tryGetContext('whitelist');
@@ -99,6 +100,7 @@ export class MinecraftCdkStack extends cdk.Stack {
         ...(adminPlayerNames !== undefined && { 'OPS': adminPlayerNames }),
         ...(difficulty !== undefined && { 'DIFFICULTY': difficulty }),
         ...(whitelist !== undefined && { 'WHITELIST': whitelist }),
+        ...(memory !== undefined && { 'MEMORY': memory }),
       },
     });
 
