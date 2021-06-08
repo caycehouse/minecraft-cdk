@@ -7,10 +7,12 @@ const app = new cdk.App({
     context: {
         adminPlayerNames: undefined,
         difficulty: undefined,
+        hostedZoneId: undefined,
         instanceType: "t3.medium",
         keyPairName: undefined,
         minecraftImageTag: "latest",
         minecraftTypeTag: undefined,
+        recordName: undefined,
         serverState: "Running",
         spotPrice: "0.015",
         whitelist: undefined,

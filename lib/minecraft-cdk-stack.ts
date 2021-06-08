@@ -3,6 +3,10 @@ import * as cdk from '@aws-cdk/core';
 import * as ec2 from '@aws-cdk/aws-ec2'
 import * as ecs from '@aws-cdk/aws-ecs';
 import * as efs from '@aws-cdk/aws-efs';
+import * as events from '@aws-cdk/aws-events';
+import * as iam from '@aws-cdk/aws-iam';
+import * as lambda from '@aws-cdk/aws-lambda-nodejs';
+import * as targets from "@aws-cdk/aws-events-targets";
 
 export class MinecraftCdkStack extends cdk.Stack {
   constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
@@ -11,10 +15,12 @@ export class MinecraftCdkStack extends cdk.Stack {
     const adminPlayerNames = this.node.tryGetContext('adminPlayerNames');
     const capacity = this.node.tryGetContext('serverState') === "Running" ? 1 : 0;
     const difficulty = this.node.tryGetContext('difficulty');
+    const hostedZoneId = this.node.tryGetContext('hostedZoneId');
     const instanceType = this.node.tryGetContext('instanceType');
     const keyPairName = this.node.tryGetContext('keyPairName');
     const minecraftImageTag = this.node.tryGetContext('minecraftImageTag');
     const minecraftTypeTag = this.node.tryGetContext('minecraftTypeTag');
+    const recordName = this.node.tryGetContext('recordName');
     const spotPrice = this.node.tryGetContext('spotPrice');
     const whitelist = this.node.tryGetContext('whitelist');
     const yourIPv4 = this.node.tryGetContext('yourIPv4');
@@ -131,6 +137,42 @@ export class MinecraftCdkStack extends cdk.Stack {
         ec2.Peer.ipv4(`${yourIPv4}/32`),
         ec2.Port.tcp(22)
       );
+    }
+
+    if (hostedZoneId !== undefined && recordName !== undefined) {
+      const dnsHandler = new lambda.NodejsFunction(this, 'dns', {
+        description: "Sets Route 53 DNS Record for Minecraft",
+        timeout: cdk.Duration.seconds(20),
+        environment: {
+          hostedZoneId: hostedZoneId,
+          recordName: recordName,
+        },
+        bundling: {
+          externalModules: [
+            'aws-sdk'
+          ]
+        },
+      });
+
+      const dnsPolicy = new iam.PolicyStatement({
+        actions: ['route53:*', 'ec2:DescribeInstance*'],
+        resources: ['*'],
+      });
+  
+      dnsHandler.role?.attachInlinePolicy(
+        new iam.Policy(this, 'DNSPolicy', {
+          statements: [dnsPolicy],
+        }),
+      );
+
+      new events.Rule(this, 'rule', {
+        eventPattern: {
+          source: ["aws.autoscaling"],
+          detail: { "AutoScalingGroupName" : [autoScalingGroup.autoScalingGroupName] },
+          detailType: ["EC2 Instance Launch Successful"],
+        },
+        targets: [new targets.LambdaFunction(dnsHandler)]
+      });
     }
 
     // Output how to find the instance ip
