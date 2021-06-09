@@ -49,8 +49,8 @@ export class MinecraftCdkStack extends cdk.Stack {
       machineImage: ecs.EcsOptimizedImage.amazonLinux2(),
       associatePublicIpAddress: true,
       desiredCapacity: capacity,
-      minCapacity: capacity,
-      maxCapacity: capacity,
+      minCapacity: 0,
+      maxCapacity: 1,
       ...(keyPairName !== undefined && { keyName: keyPairName }),
     });
 
@@ -179,6 +179,30 @@ export class MinecraftCdkStack extends cdk.Stack {
         targets: [new targets.LambdaFunction(dnsHandler)]
       });
     }
+
+    const capacityHandler = new lambda.NodejsFunction(this, 'capacity', {
+      description: "Sets capacity for the Minecraft Server",
+      timeout: cdk.Duration.seconds(20),
+      environment: {
+        autoScalingGroup: autoScalingGroup.autoScalingGroupName,
+      },
+      bundling: {
+        externalModules: [
+          'aws-sdk'
+        ]
+      },
+    });
+
+    const capacityPolicy = new iam.PolicyStatement({
+      actions: ['autoscaling:SetDesiredCapacity*'],
+      resources: ['*'],
+    });
+
+    capacityHandler.role?.attachInlinePolicy(
+      new iam.Policy(this, 'CapacityPolicy', {
+        statements: [capacityPolicy],
+      }),
+    );
 
     // Output how to find the instance ip
     new cdk.CfnOutput(this, "CheckInstanceIp", {
