@@ -51,6 +51,7 @@ export class MinecraftCdkStack extends cdk.Stack {
       desiredCapacity: capacity,
       minCapacity: 0,
       maxCapacity: 1,
+      newInstancesProtectedFromScaleIn: true,
       ...(keyPairName !== undefined && { keyName: keyPairName }),
     });
 
