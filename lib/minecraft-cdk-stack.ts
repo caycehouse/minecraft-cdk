@@ -49,8 +49,8 @@ export class MinecraftCdkStack extends cdk.Stack {
       machineImage: ecs.EcsOptimizedImage.amazonLinux2(),
       associatePublicIpAddress: true,
       desiredCapacity: capacity,
-      minCapacity: 0,
-      maxCapacity: 1,
+      minCapacity: capacity,
+      maxCapacity: capacity,
       ...(keyPairName !== undefined && { keyName: keyPairName }),
     });
 
@@ -195,7 +195,7 @@ export class MinecraftCdkStack extends cdk.Stack {
     });
 
     const capacityPolicy = new iam.PolicyStatement({
-      actions: ['autoscaling:SetDesiredCapacity*'],
+      actions: ['autoscaling:UpdateAutoScalingGroup*'],
       resources: ['*'],
     });
 

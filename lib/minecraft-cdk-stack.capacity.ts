@@ -8,9 +8,11 @@ exports.handler = function (event: { [x: string]: string; }, context: { logStrea
     if (autoScalingGroup !== undefined) {
         var params = {
             AutoScalingGroupName: autoScalingGroup,
-            DesiredCapacity: capacity
+            DesiredCapacity: capacity,
+            MaxSize: capacity, 
+            MinSize: capacity
         };
-        autoscaling.setDesiredCapacity(params, function (err, data) {
+        autoscaling.updateAutoScalingGroup(params, function (err, data) {
             if (err) {
                 console.log(err, err.stack);
             } else {
