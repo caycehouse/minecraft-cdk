@@ -51,7 +51,6 @@ export class MinecraftCdkStack extends cdk.Stack {
       desiredCapacity: capacity,
       minCapacity: 0,
       maxCapacity: 1,
-      newInstancesProtectedFromScaleIn: true,
       ...(keyPairName !== undefined && { keyName: keyPairName }),
     });
 
@@ -128,7 +127,8 @@ export class MinecraftCdkStack extends cdk.Stack {
     const service = new ecs.Ec2Service(this, 'EC2Service', {
       cluster,
       taskDefinition,
-      daemon: true
+      maxHealthyPercent: 100,
+      minHealthyPercent: 0,
     });
 
     // Allow ec2 instance to access efs
