@@ -187,6 +187,7 @@ export class MinecraftCdkStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(20),
       environment: {
         autoScalingGroup: autoScalingGroup.autoScalingGroupName,
+        cluster: cluster.clusterName,
         service: service.serviceName
       },
       bundling: {
