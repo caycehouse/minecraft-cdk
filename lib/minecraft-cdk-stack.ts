@@ -129,6 +129,7 @@ export class MinecraftCdkStack extends cdk.Stack {
       taskDefinition,
       maxHealthyPercent: 100,
       minHealthyPercent: 0,
+      desiredCount: capacity
     });
 
     // Allow ec2 instance to access efs
@@ -186,6 +187,7 @@ export class MinecraftCdkStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(20),
       environment: {
         autoScalingGroup: autoScalingGroup.autoScalingGroupName,
+        service: service.serviceName
       },
       bundling: {
         externalModules: [
@@ -195,7 +197,7 @@ export class MinecraftCdkStack extends cdk.Stack {
     });
 
     const capacityPolicy = new iam.PolicyStatement({
-      actions: ['autoscaling:UpdateAutoScalingGroup*'],
+      actions: ['autoscaling:UpdateAutoScalingGroup*', 'ecs:UpdateService*'],
       resources: ['*'],
     });
 
